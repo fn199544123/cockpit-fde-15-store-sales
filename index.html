@@ -8,12 +8,78 @@
 <section class="panel"><div class="filters"><div class="field"><label for="start">开始日期</label><input id="start" type="date" required></div><div class="field"><label for="end">结束日期</label><input id="end" type="date" required></div><div class="field"><label for="store">门店</label><select id="store"></select></div><div class="field"><label for="category">品类</label><select id="category"></select></div><button id="defaultFilter">恢复默认筛选</button></div><p id="filterError" class="error" role="alert"></p><p class="note" id="rangeNote"></p></section>
 <section class="stats" aria-label="经营概览"><div class="stat"><div class="caption">销售额合计 / 元</div><div id="total" class="value"></div><div id="recordCount" class="hint"></div></div><div class="stat"><div class="caption">同比 · 去年同期</div><div id="yoy" class="value"></div><div id="yoyBase" class="hint"></div></div><div class="stat"><div class="caption">环比 · 上一等长区间</div><div id="mom" class="value"></div><div id="momBase" class="hint"></div></div><div class="stat"><div class="caption">异常门店</div><div id="alertCount" class="value negative"></div><div class="hint">同比或环比下降 ≥ 20%</div></div></section>
 <div class="grid"><section class="panel"><div class="panel-head"><h2>门店经营表现</h2><span class="muted">随当前筛选更新</span></div><div class="table-wrap"><table><thead><tr><th>门店</th><th>销售额 / 元</th><th>同比</th><th>环比</th><th>状态</th></tr></thead><tbody id="storesBody"></tbody></table></div><p class="note">红色为下降预警；无可比基数不判定增长或下降。</p></section><section class="panel"><div class="panel-head"><h2>品类销售分布</h2><span class="muted">金额与占比</span></div><div id="bars" class="bars"></div></section></div>
-<section class="panel"><div class="panel-head"><div><h2>销售记录 <span class="count" id="listCount"></span></h2><p class="muted">每笔销售均可修改，保存后自动重新汇总</p></div><span class="badge">演示数据·仅当前浏览器保存</span></div><div class="table-wrap"><table><thead><tr><th>虚构记录编号</th><th>销售日期</th><th>门店</th><th>品类</th><th>销售额 / 元</th><th>操作</th></tr></thead><tbody id="recordsBody"></tbody></table></div><div class="panel-head" style="margin-top:16px"><span class="muted" id="pageInfo"></span><div class="actions"><button id="prev">上一页</button><button id="next">下一页</button></div></div></section>
+<section class="panel"><div class="panel-head"><div><h2>销售记录 <span class="count" id="listCount"></span></h2><p class="muted">每笔销售均可修改，保存后自动重新汇总</p></div><span class="badge">演示数据·服务端数据库保存</span></div><div class="table-wrap"><table><thead><tr><th>虚构记录编号</th><th>销售日期</th><th>门店</th><th>品类</th><th>销售额 / 元</th><th>操作</th></tr></thead><tbody id="recordsBody"></tbody></table></div><div class="panel-head" style="margin-top:16px"><span class="muted" id="pageInfo"></span><div class="actions"><button id="prev">上一页</button><button id="next">下一页</button></div></div></section>
 <section class="panel"><details><summary>统计口径与演示边界</summary><p>金额按分存储，页面以元展示。同比：所选区间向前平移一年，2 月 29 日映射为上年 2 月 28 日；环比：所选区间之前的等长天数。两类比较均沿用门店、品类筛选。基数缺失或为零显示“暂无可比数据”；当前区间没有记录也不计算增长率。门店有当前记录且任一可比增长率 ≤ -20% 时标红。记录为手工录入销售，不代表完整营业日覆盖。没有联网实时采集、多人同步、支付或硬件接入。日期按日历日处理。</p></details></section>
-<div class="footer"><span>某企业 · 本地演示系统 / douyin</span><button id="reset">重置演示数据</button></div></main>
+<div class="footer"><span>某企业 · 业务演示系统 / douyin</span><button id="reset">重置演示数据</button></div></main>
 <dialog id="editor"><form id="salesForm"><h2 id="editorTitle">新增销售</h2><p class="muted">仅录入虚构销售数据，金额最多保留两位小数。</p><div class="form-grid"><div class="field wide"><label for="saleDate">销售日期</label><input id="saleDate" type="date" required min="2000-01-01" max="2099-12-31"></div><div class="field"><label for="saleStore">门店</label><select id="saleStore" required></select></div><div class="field"><label for="saleCategory">品类</label><select id="saleCategory" required></select></div><div class="field wide"><label for="saleAmount">销售额（元）</label><input id="saleAmount" type="number" step="0.01" min="0.01" max="99999999.99" required placeholder="例如 1280.50"></div></div><p id="saveError" class="error" role="alert"></p><div class="dialog-actions"><button type="button" id="cancel">取消</button><button class="primary" type="submit">保存销售</button></div></form></dialog>
-<dialog id="resetDialog"><h2>重置演示数据？</h2><p style="margin-top:12px">当前浏览器中新增和修改的记录将被替换为初始演示数据。此操作无法撤销，建议先导出 CSV。</p><div class="dialog-actions"><button id="cancelReset">取消</button><button id="confirmReset" class="primary">确认重置</button></div></dialog><div id="toast" class="toast" role="status" hidden></div>
-<script>
+<dialog id="resetDialog"><h2>重置演示数据？</h2><p style="margin-top:12px">数据库中新增和修改的记录将被替换为初始演示数据。此操作无法撤销，建议先导出 CSV。</p><div class="dialog-actions"><button id="cancelReset">取消</button><button id="confirmReset" class="primary">确认重置</button></div></dialog><div id="toast" class="toast" role="status" hidden></div>
+<script>// Embedded in each application. No localStorage business persistence or fallback.
+const backend = (() => {
+  let revision = null, initial = true, reset = false, busy = false, failed = false;
+  let seedData;
+  const endpoint = new URL('api/state', location.href.replace(/index\.html(?:\?.*)?$/, ''));
+  function failure(message) {
+    failed = true;
+    document.body.inert = true;
+    let box = document.getElementById('backend-failure');
+    if (!box) {
+      box = document.createElement('dialog'); box.id = 'backend-failure';
+      document.documentElement.append(box);
+    }
+    box.replaceChildren();
+    const title = document.createElement('h2'); title.textContent = '数据未保存';
+    const detail = document.createElement('p'); detail.textContent = message;
+    const button = document.createElement('button'); button.textContent = '刷新并读取服务器数据';
+    button.onclick = () => location.reload();
+    box.append(title, detail, button); if (!box.open) box.showModal();
+  }
+  async function request(options) {
+    try {
+      const response = await fetch(endpoint, {credentials: 'same-origin', cache: 'no-store', ...options});
+      if (!response.ok) {
+        let message = '服务器不可用或当前账号没有操作权限。';
+        try { message = (await response.json()).error || message; } catch (_) {}
+        throw Error(message);
+      }
+      return await response.json();
+    } catch (error) {
+      failure(error.message || '请求失败，请刷新核对服务器数据。');
+      throw error;
+    }
+  }
+  return {
+    async load() {
+      const result = await request(); revision = result.revision; seedData = result.seed;
+      return JSON.stringify(result.data);
+    },
+    seed() {
+      if (!initial) reset = true;
+      return structuredClone(seedData);
+    },
+    ready() { initial = false; window.backendReady = true; document.documentElement.dataset.backendReady = 'true'; },
+    async save(data) {
+      if (failed || busy || revision === null) throw Error('请等待保存完成或刷新后重试');
+      busy = true; document.body.inert = true;
+      try {
+        const csrf = document.cookie.split('; ').find(x => x.startsWith('csrftoken='))?.slice(10) || '';
+        const result = await request({method: 'POST', headers: {
+          'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrf
+        }, body: JSON.stringify({revision, action: reset ? 'reset' : 'save', data,
+          context: {product: document.getElementById('shipProduct')?.value, room: document.getElementById('shipRoom')?.value}})});
+        revision = result.revision; reset = false;
+      } finally {
+        busy = false;
+        if (!failed) document.body.inert = false;
+      }
+    },
+    failure
+  };
+})();
+window.addEventListener('unhandledrejection', event => { backend.failure(event.reason?.message || '操作失败，请刷新核对'); event.preventDefault(); });
+
+(async () => {
+const backendInitial = await backend.load();
+
 'use strict';
 const KEY='development-15-sales-v1',STORES=['一门店','二门店','三门店'],CATS=['食品饮料','日用百货','服饰配件'];
 const $=id=>document.getElementById(id),money=n=>(n/100).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -23,8 +89,8 @@ function lastYear(s){let d=date(s),m=d.getUTCMonth();d.setUTCFullYear(d.getUTCFu
 function validDate(s){return typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!isNaN(date(s))&&iso(date(s))===s&&s>='2000-01-01'&&s<='2099-12-31'}
 function seed(){const out=[],t=today();let n=1;for(let offset=0;offset<14;offset++)for(let s=0;s<3;s++)for(let c=0;c<3;c++){let cents=(160000+s*43000+c*29000+offset*1700);if(offset<7&&s===1)cents=Math.round(cents*.62);out.push({id:'XS-'+String(n++).padStart(5,'0'),date:shift(t,-offset),store:STORES[s],category:CATS[c],cents});if(offset<7)out.push({id:'XS-'+String(n++).padStart(5,'0'),date:lastYear(shift(t,-offset)),store:STORES[s],category:CATS[c],cents:190000+s*35000+c*21000});}return out}
 function validRows(a){return Array.isArray(a)&&a.length<=100000&&new Set(a.map(r=>r.id)).size===a.length&&a.every(r=>r&&/^XS-[A-Za-z0-9-]+$/.test(r.id)&&validDate(r.date)&&STORES.includes(r.store)&&CATS.includes(r.category)&&Number.isSafeInteger(r.cents)&&r.cents>0&&r.cents<=9999999999)}
-let rows=[],storageOK=true;try{const raw=localStorage.getItem(KEY);rows=raw===null?seed():JSON.parse(raw);if(!validRows(rows))throw Error('invalid');if(raw===null)localStorage.setItem(KEY,JSON.stringify(rows))}catch(e){storageOK=false;rows=seed();$('storageWarning').hidden=false;$('storageWarning').textContent='浏览器存储不可用或已有数据损坏。当前展示临时样例，保存操作已停用；可导出当前筛选数据，或确认重置后重试。'}
-function persist(next){try{localStorage.setItem(KEY,JSON.stringify(next));rows=next;storageOK=true;$('storageWarning').hidden=true;return true}catch(e){$('storageWarning').hidden=false;$('storageWarning').textContent='保存失败：浏览器存储不可用或容量不足，变更未保存。请导出数据后检查浏览器设置。';return false}}
+let rows=[],storageOK=true;try{const raw=backendInitial;rows=raw===null?backend.seed():JSON.parse(raw);if(!validRows(rows))throw Error('invalid');if(raw===null)(await backend.save(rows))}catch(e){storageOK=false;rows=backend.seed();$('storageWarning').hidden=false;$('storageWarning').textContent='浏览器存储不可用或已有数据损坏。当前展示临时样例，保存操作已停用；可导出当前筛选数据，或确认重置后重试。'}
+async function persist(next){try{(await backend.save(next));rows=next;storageOK=true;$('storageWarning').hidden=true;return true}catch(e){$('storageWarning').hidden=false;$('storageWarning').textContent='保存失败：服务器不可用或数据校验失败，变更未保存。请导出数据后检查浏览器设置。';return false}}
 function options(el,values,all){el.replaceChildren();for(const v of [...(all?['']:[]),...values]){const o=document.createElement('option');o.value=v;o.textContent=v||all;el.append(o)}}
 options($('store'),STORES,'全部门店');options($('category'),CATS,'全部品类');options($('saleStore'),STORES);options($('saleCategory'),CATS);
 let page=1,filtered=[],editing=null,timer;
@@ -45,8 +111,12 @@ $('storesBody').replaceChildren();let alerts=0;for(const store of STORES.filter(
 $('bars').replaceChildren();if(!filtered.length)$('bars').innerHTML='<div class="empty">当前筛选下暂无销售记录</div>';else for(const cat of CATS.filter(c=>!$('category').value||c===$('category').value)){const amount=sum(filtered.filter(r=>r.category===cat)),percent=total?amount/total*100:0;const d=document.createElement('div');d.innerHTML=`<div class="bar-head"><span>${cat}</span><span>${money(amount)} <span class="muted">/ ${percent.toFixed(1)}%</span></span></div><div class="track"><div class="fill" style="width:${percent}%"></div></div>`;$('bars').append(d)}renderRecords()}
 function renderRecords(){let pages=Math.max(1,Math.ceil(filtered.length/10));page=Math.min(page,pages);$('recordsBody').replaceChildren();for(const r of filtered.slice((page-1)*10,page*10)){const tr=document.createElement('tr');for(const v of [r.id,r.date,r.store,r.category,money(r.cents)])td(tr,v);const cell=td(tr,''),btn=document.createElement('button');btn.className='edit';btn.textContent='修改';btn.setAttribute('aria-label','修改 '+r.id);btn.onclick=()=>openEditor(r);cell.append(btn);$('recordsBody').append(tr)}if(!filtered.length)$('recordsBody').innerHTML='<tr><td colspan="6" class="empty">暂无销售记录，可调整筛选或新增销售</td></tr>';$('listCount').textContent=`共 ${filtered.length} 笔`;$('pageInfo').textContent=`第 ${page} / ${pages} 页 · 每页 10 笔`;$('prev').disabled=page<=1;$('next').disabled=page>=pages}
 function openEditor(r){editing=r?r.id:null;$('salesForm').reset();$('editorTitle').textContent=r?'修改销售':'新增销售';$('saleDate').value=r?r.date:today();$('saleStore').value=r?r.store:$('store').value||STORES[0];$('saleCategory').value=r?r.category:$('category').value||CATS[0];$('saleAmount').value=r?(r.cents/100).toFixed(2):'';$('saveError').textContent='';$('editor').showModal()}
-$('salesForm').onsubmit=e=>{e.preventDefault();if(!storageOK){$('saveError').textContent='存储异常，请先处理提示或重置演示数据。';return}const raw=$('saleAmount').value;if(!validDate($('saleDate').value)||!/^\d+(\.\d{1,2})?$/.test(raw)||+raw<=0||+raw>99999999.99){$('saveError').textContent='请输入有效日期与正数金额（最多两位小数）。';return}const r={id:editing||'XS-'+crypto.randomUUID(),date:$('saleDate').value,store:$('saleStore').value,category:$('saleCategory').value,cents:Math.round(+raw*100)};const next=editing?rows.map(x=>x.id===editing?r:x):[...rows,r];if(!persist(next)){$('saveError').textContent='保存失败，变更未写入。';return}$('editor').close();page=1;render();toast(filtered.some(x=>x.id===r.id)?'已保存，汇总与筛选已更新':'已保存；该记录不在当前筛选范围内')};
-for(const id of ['start','end','store','category'])$(id).onchange=()=>{page=1;render()};$('add').onclick=()=>openEditor();$('cancel').onclick=()=>$('editor').close();$('defaultFilter').onclick=defaults;$('prev').onclick=()=>{page--;renderRecords()};$('next').onclick=()=>{page++;renderRecords()};$('reset').onclick=()=>$('resetDialog').showModal();$('cancelReset').onclick=()=>$('resetDialog').close();$('confirmReset').onclick=()=>{if(persist(seed())){$('resetDialog').close();defaults();toast('已恢复初始演示数据')}};
+$('salesForm').onsubmit=async e=>{e.preventDefault();if(!storageOK){$('saveError').textContent='存储异常，请先处理提示或重置演示数据。';return}const raw=$('saleAmount').value;if(!validDate($('saleDate').value)||!/^\d+(\.\d{1,2})?$/.test(raw)||+raw<=0||+raw>99999999.99){$('saveError').textContent='请输入有效日期与正数金额（最多两位小数）。';return}const r={id:editing||'XS-'+crypto.randomUUID(),date:$('saleDate').value,store:$('saleStore').value,category:$('saleCategory').value,cents:Math.round(+raw*100)};const next=editing?rows.map(x=>x.id===editing?r:x):[...rows,r];if(!(await persist(next))){$('saveError').textContent='保存失败，变更未写入。';return}$('editor').close();page=1;render();toast(filtered.some(x=>x.id===r.id)?'已保存，汇总与筛选已更新':'已保存；该记录不在当前筛选范围内')};
+for(const id of ['start','end','store','category'])$(id).onchange=()=>{page=1;render()};$('add').onclick=()=>openEditor();$('cancel').onclick=()=>$('editor').close();$('defaultFilter').onclick=defaults;$('prev').onclick=()=>{page--;renderRecords()};$('next').onclick=()=>{page++;renderRecords()};$('reset').onclick=()=>$('resetDialog').showModal();$('cancelReset').onclick=()=>$('resetDialog').close();$('confirmReset').onclick=async ()=>{if((await persist(backend.seed()))){$('resetDialog').close();defaults();toast('已恢复初始演示数据')}};
 $('export').onclick=()=>{if(!periods())return;const csv='\uFEFF'+[['虚构记录编号','销售日期','门店','品类','销售额（元）'],...filtered.map(r=>[r.id,r.date,r.store,r.category,(r.cents/100).toFixed(2)])].map(r=>r.map(v=>'"'+String(v).replaceAll('"','""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),a=document.createElement('a');a.href=url;a.download=`某企业-销售记录-${$('start').value}-${$('end').value}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);toast(`已导出当前筛选的 ${filtered.length} 笔记录`)};
 window.addEventListener('storage',e=>{if(e.key===KEY)location.reload()});defaults();
+
+
+backend.ready();
+})().catch(error=>backend.failure(error.message));
 </script></body></html>

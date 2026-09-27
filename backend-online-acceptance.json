@@ -1,0 +1,17 @@
+{
+  "project": 15,
+  "ok": true,
+  "checks": [
+    "未登录302、无权限403、只读账号不可写、缺CSRF不可写",
+    "真实中台页面加载，浏览器携CSRF完成业务API事务",
+    "实际重启项目服务后，数据与版本保持不变",
+    "后台服务运行正常，已设开机启动",
+    "线上UI新增123.45元，新浏览器可见；仅删除本次测试记录完成清理"
+  ],
+  "url": "https://douyin.fangnan.club/workbench/system-development/15/system/",
+  "sha256": {
+    "index.html": "edf522b78301a4786a07c7ae6ef5b7187c19e0063083a1c8b13b2de470b42e9f",
+    "backend.py": "88ba4aac58fbb83e34c46978ca51a35fe24316cc95c4d4766fd27b024f511d15",
+    "seed.json": "ae592f907cc2989223ff392fad735fbe3c0aed111a54c4c03e170c93c60723d0"
+  }
+}
